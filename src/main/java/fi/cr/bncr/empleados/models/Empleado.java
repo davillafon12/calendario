@@ -17,6 +17,7 @@ public class Empleado {
     private String numero;
     private String nombre;
     private Turno turnoActual;
+    private Turno turnoSiguiente;
 
     private List<Dia> diasQueNoLabora;
     private Rol rolPredefinido;
@@ -25,6 +26,6 @@ public class Empleado {
 
     @Override
     public String toString(){
-        return "Numero: "+numero+" Nombre: "+nombre+" Rol Predefinido: "+rolPredefinido+" Rol Actual: "+rolActual+" Dias NO Laborales: "+diasQueNoLabora+" Turno: {"+turnoActual+"} Empleado Backup: {"+backup+"}";
+        return "Numero: "+numero+" Nombre: "+nombre+" Rol Predefinido: "+rolPredefinido+" Rol Actual: "+rolActual+" Dias NO Laborales: "+diasQueNoLabora+" Turno Actual: {"+turnoActual+"} Turno Siguiente: {"+turnoSiguiente+"} Empleado Backup: {"+backup+"}";
     }
 }

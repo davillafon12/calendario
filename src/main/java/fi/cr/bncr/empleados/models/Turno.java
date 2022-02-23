@@ -11,6 +11,7 @@ import javax.persistence.Table;
 
 import fi.cr.bncr.empleados.enums.Dia;
 import fi.cr.bncr.empleados.models.converters.TurnoDiasConverter;
+import fi.cr.bncr.empleados.utils.Utils;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -35,28 +36,9 @@ public class Turno {
 
     @Override
     public String toString(){
-        return "Numero: "+numero+" Siguiente: "+siguienteTurno+" Dias: "+join(",", dias);
+        return "Numero: "+numero+" Siguiente: "+siguienteTurno+" Dias: "+Utils.join(",", dias);
     }
 
-    private static String join(String separator, List<Dia> input) {
 
-        if (input == null || input.size() <= 0) return "";
-
-        StringBuilder sb = new StringBuilder();
-
-        for (int i = 0; i < input.size(); i++) {
-
-            sb.append(input.get(i));
-
-            // if not the last item
-            if (i != input.size() - 1) {
-                sb.append(separator);
-            }
-
-        }
-
-        return sb.toString();
-
-    }
 
 }
