@@ -35,7 +35,7 @@ public class ArchivoRestController {
             //logger.info("----------------------------------------------");
             empleados.forEach(e -> logger.info(e.toString()));
 
-            return new RestResponse(true, "PROBANDO", null);
+            return new RestResponse(true, empleados, null);
         }else{
             return new RestResponse(false, "Error al cargar el archivo Excel", "Objeto Nulo");
         }

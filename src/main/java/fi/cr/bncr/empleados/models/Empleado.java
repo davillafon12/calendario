@@ -4,6 +4,7 @@ import java.util.List;
 
 import fi.cr.bncr.empleados.enums.Dia;
 import fi.cr.bncr.empleados.enums.Rol;
+import fi.cr.bncr.empleados.processors.BaseProcessor;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,11 +22,20 @@ public class Empleado {
 
     private List<Dia> diasQueNoLabora;
     private Rol rolPredefinido;
-    private Rol rolActual;
+    private Rol rolSiguiente;
     private Empleado backup;
+
+    private List<DiaLaboral> diasLaboresActuales;
+    private List<DiaLaboral> diasLaboresSiguientes;
 
     @Override
     public String toString(){
-        return "Numero: "+numero+" Nombre: "+nombre+" Rol Predefinido: "+rolPredefinido+" Rol Actual: "+rolActual+" Dias NO Laborales: "+diasQueNoLabora+" Turno Actual: {"+turnoActual+"} Turno Siguiente: {"+turnoSiguiente+"} Empleado Backup: {"+backup+"}";
+        return "Numero: "+numero+" Nombre: "+nombre+" Rol Predefinido: "+rolPredefinido+
+        " Rol Siguiente: "+rolSiguiente+" Dias NO Laborales: "+diasQueNoLabora+" Turno Actual: {"+turnoActual+"} Turno Siguiente: {"+turnoSiguiente+"} Empleado Backup: {"+backup+"}" +
+        " Dias Laborales Actuales: "+diasLaboresActuales+" Dias Laborales Siguientes: "+diasLaboresSiguientes;
+    }
+
+    public Empleado processar(BaseProcessor<Empleado> processor){
+        return processor.process(this);
     }
 }

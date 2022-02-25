@@ -20,7 +20,9 @@ public class TurnoService {
     private final List<Turno> turnosDisponibles = Arrays.asList(new Turno(1L, 1, Arrays.asList(Dia.MIERCOLES, Dia.JUEVES, Dia.VIERNES, Dia.SABADO), 3),
                                                                 new Turno(2L, 2, Arrays.asList(Dia.MIERCOLES, Dia.JUEVES, Dia.MARTES, Dia.SABADO), 4),
                                                                 new Turno(3L, 3, Arrays.asList(Dia.MIERCOLES, Dia.LUNES, Dia.VIERNES, Dia.MARTES), 2),
-                                                                new Turno(4L, 4, Arrays.asList(Dia.LUNES, Dia.JUEVES, Dia.VIERNES, Dia.MARTES), 1));
+                                                                new Turno(4L, 4, Arrays.asList(Dia.LUNES, Dia.JUEVES, Dia.VIERNES, Dia.MARTES), 1),
+                                                                new Turno(5L, 5, Arrays.asList(Dia.LUNES, Dia.MARTES, Dia.MIERCOLES, Dia.JUEVES), 5),
+                                                                new Turno(6L, 6, Arrays.asList(Dia.VIERNES, Dia.MARTES, Dia.MIERCOLES, Dia.SABADO), 6));
 
     public List<Turno> getAllTurnos(){
         return this.turnosDisponibles;

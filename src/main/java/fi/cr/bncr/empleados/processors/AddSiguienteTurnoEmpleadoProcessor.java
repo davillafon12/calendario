@@ -3,8 +3,6 @@ package fi.cr.bncr.empleados.processors;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +30,7 @@ public class AddSiguienteTurnoEmpleadoProcessor implements BaseProcessor<Emplead
 
         if(this.tieneRestriccionDeDiaLaboral(empleado, siguiente)){
             logger.info("HAY QUE CAMBIARLE EL TURNO A: "+empleado.getNombre());
+           // logger.info(siguiente.toString());
             siguiente = this.getTurnoQueCalce(empleado);
         }
 
@@ -55,15 +54,22 @@ public class AddSiguienteTurnoEmpleadoProcessor implements BaseProcessor<Emplead
         List<Turno> turnosDisponibles = new ArrayList<>();
 
         for(Turno t : turnoService.getAllTurnos()){
-            if(t.getNumero() == empleado.getTurnoActual().getNumero()) continue; //Evitar asignar el mismo turno
+            //if(t.getNumero() == empleado.getTurnoActual().getNumero()) continue; //Evitar asignar el mismo turno
 
-            for(Dia d : empleado.getDiasQueNoLabora()){
-                if(t.getDias().contains(d)) continue;
+            int items = 0;
+            for(Dia d : empleado.getDiasQueNoLabora()){ // D,S
+                //logger.info("DIA: "+d+" TURNO: "+t.getDias());
+                if(t.getDias().contains(d)) items++;
+                //logger.info("PASOOOO");
             }
 
-            turnosDisponibles.add(t);
+            if(items == 0){
+                turnosDisponibles.add(t);
+            }
         }
 
+        //logger.info("TURNOS DISPONIBLES");
+        //logger.info(turnosDisponibles.toString());
         if(turnosDisponibles.size() == 0){
             throw new IllegalStateException("No hay turno disponible para el empleado: "+empleado.getNombre());
         }
