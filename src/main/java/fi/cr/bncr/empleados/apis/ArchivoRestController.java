@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import fi.cr.bncr.empleados.models.Empleado;
 import fi.cr.bncr.empleados.models.RestResponse;
 import fi.cr.bncr.empleados.services.EmpleadoService;
+import fi.cr.bncr.empleados.services.TurnoService;
 
 @RestController
 @RequestMapping("api/archivo")
@@ -23,10 +24,28 @@ public class ArchivoRestController {
     @Autowired
     private EmpleadoService empleadoService;
 
+    @Autowired
+    private TurnoService turnoService;
+
 
     @PostMapping("subir")
     public RestResponse upload(@RequestParam("file") MultipartFile file){
-        List<Empleado> empleados = empleadoService.loadExcelFile(file);
+
+        RestResponse r = new RestResponse(false, null, null);;
+
+        //Cargamos datos preeliminares
+        turnoService.loadTurnosFromFile(file);
+
+        if(turnoService.getAllTurnos().size() > 0){
+
+        }else{
+            r.setSuccess(false);
+            r.setError("No hay turnos disponibles");
+        }
+
+        return r;
+
+        /*List<Empleado> empleados = empleadoService.loadExcelFile(file);
         if(empleados != null){
             //empleados.forEach(e -> logger.info(e.toString()));
 
@@ -38,6 +57,6 @@ public class ArchivoRestController {
             return new RestResponse(true, empleados, null);
         }else{
             return new RestResponse(false, "Error al cargar el archivo Excel", "Objeto Nulo");
-        }
+        }*/
     }
 }

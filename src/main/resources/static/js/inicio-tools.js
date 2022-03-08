@@ -155,7 +155,15 @@ function generarTotales(){
 
         html += "</tr>";
     }
-    console.log(totalesDias);
+
+    html += "<tr><td>Totales</td>";
+    for(var index in _ORDEN_DIAS){
+        var dia = _ORDEN_DIAS[index];
+        html += "<td>"+totalesDias[dia]+"</td>";
+    }
+    html += "</tr>";
+
+    //console.log(totalesDias);
     $("#tabla_roles_totales tbody").html(html);
 }
 

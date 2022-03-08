@@ -85,6 +85,7 @@ public class EmpleadoService {
 
                 Rol predefinido = Rol.NINGUNO;
                 Empleado backup = null;
+                boolean turnoFijo = false;
 
                 //Excepciones y salvedades
                 if("15288".equals(numero)){
@@ -125,7 +126,7 @@ public class EmpleadoService {
                     diasNoLaborados.add(Dia.JUEVES);
                 }
 
-                empleados.add(new Empleado(Long.getLong(rowNumber+""), numero, nombre, this.getTurnoFromEmpleado(currentRow), null, diasNoLaborados, predefinido, Rol.NINGUNO, backup, this.getDiasActualesLaboradosFromEmpleado(currentRow), null));
+                empleados.add(new Empleado(Long.getLong(rowNumber+""), numero, nombre, this.getTurnoFromEmpleado(currentRow), null, diasNoLaborados, predefinido, Rol.NINGUNO, backup, this.getDiasActualesLaboradosFromEmpleado(currentRow), null, turnoFijo));
             }
         }
         return empleados;

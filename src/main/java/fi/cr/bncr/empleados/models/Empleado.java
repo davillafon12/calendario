@@ -28,11 +28,13 @@ public class Empleado {
     private List<DiaLaboral> diasLaboresActuales;
     private List<DiaLaboral> diasLaboresSiguientes;
 
+    private boolean tieneTurnoFijo;
+
     @Override
     public String toString(){
         return "Numero: "+numero+" Nombre: "+nombre+" Rol Predefinido: "+rolPredefinido+
         " Rol Siguiente: "+rolSiguiente+" Dias NO Laborales: "+diasQueNoLabora+" Turno Actual: {"+turnoActual+"} Turno Siguiente: {"+turnoSiguiente+"} Empleado Backup: {"+backup+"}" +
-        " Dias Laborales Actuales: "+diasLaboresActuales+" Dias Laborales Siguientes: "+diasLaboresSiguientes;
+        " Dias Laborales Actuales: "+diasLaboresActuales+" Dias Laborales Siguientes: "+diasLaboresSiguientes+" Turno Fijo: "+tieneTurnoFijo;
     }
 
     public Empleado processar(BaseProcessor<Empleado> processor){
