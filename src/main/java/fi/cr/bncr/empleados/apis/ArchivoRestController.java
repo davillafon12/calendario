@@ -1,6 +1,8 @@
 package fi.cr.bncr.empleados.apis;
 
 import java.util.List;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,9 +39,15 @@ public class ArchivoRestController {
         turnoService.loadTurnosFromFile(file);
 
         if(turnoService.getAllTurnos().size() > 0){
+            Map<String, Map<String, Object>> reglas = empleadoService.getReglasEmpleadosFromFile(file);
 
+            List<Empleado> empleados = empleadoService.loadEmpleadosFromFile(file, reglas);
+
+            if(empleados.size() > 0){
+            }else{
+                r.setError("No hay empleados disponibles");
+            }
         }else{
-            r.setSuccess(false);
             r.setError("No hay turnos disponibles");
         }
 

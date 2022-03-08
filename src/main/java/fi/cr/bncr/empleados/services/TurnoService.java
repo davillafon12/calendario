@@ -64,7 +64,7 @@ public class TurnoService {
     }
 
     public void loadTurnosFromFile(MultipartFile file){
-        logger.info("Cargando Turnos del Archivo: "+file.getName());
+        logger.info(">>>> Cargando Turnos del Archivo");
         try {
             Workbook workbook;
             workbook = new XSSFWorkbook(file.getInputStream());

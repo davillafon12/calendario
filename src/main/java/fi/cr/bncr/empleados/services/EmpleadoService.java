@@ -2,8 +2,12 @@ package fi.cr.bncr.empleados.services;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -29,6 +33,8 @@ public class EmpleadoService {
 
     private static Logger logger  = LoggerFactory.getLogger(EmpleadoService.class);
 
+    private static final String _REGLAS_SHEET_NAME = "Reglas";
+
     @Autowired
     private TurnoService turnoService;
 
@@ -44,8 +50,8 @@ public class EmpleadoService {
     private RolService rolService;
 
 
-    public List<Empleado> loadExcelFile(MultipartFile file){
-        logger.info("Loading excel file");
+    public List<Empleado> loadEmpleadosFromFile(MultipartFile file, Map<String, Map<String,Object>> reglas){
+        logger.info(">>>> Cargando empleados desde el archivo");
         List<Empleado> empleados = null;
         try {
             Workbook workbook;
@@ -57,16 +63,19 @@ public class EmpleadoService {
 
             Sheet sheet = workbook.getSheet(sheetName);
             Iterator<Row> rows = sheet.iterator();
-            empleados = this.getEmpleadosFromExcel(rows);
+            empleados = this.getEmpleadosFromExcel(rows, reglas);
             workbook.close();
+
+            logger.info("EMPLEADOS CARGADOS ----------------------------------------------");
+            empleados.forEach(e -> logger.info(e.toString()));
         } catch (IOException e) {
             logger.error("No se pudo cargar el archivo excel", e);
         }
         return empleados;
     }
 
-    public List<Empleado> getEmpleadosFromExcel(Iterator<Row> rows){
-        logger.info("Loading employees");
+    public List<Empleado> getEmpleadosFromExcel(Iterator<Row> rows, Map<String, Map<String,Object>> reglas){
+
         List<Empleado> empleados = new ArrayList<>();
         int rowNumber = 0;
         while (rows.hasNext()) {
@@ -80,53 +89,37 @@ public class EmpleadoService {
             String numero = currentRow.getCell(0) == null ? "" : currentRow.getCell(0).toString().trim().replace(".0", "");
             String nombre = currentRow.getCell(1) == null ? "" : currentRow.getCell(1).toString().trim();
             if(!numero.isEmpty()){
+                //Por defecto nadie trabaja los domingos
                 List<Dia> diasNoLaborados = new ArrayList<>();
                 diasNoLaborados.add(Dia.DOMINGO);
 
-                Rol predefinido = Rol.NINGUNO;
-                Empleado backup = null;
-                boolean turnoFijo = false;
+                int turnoFijo = 0;
+                Rol rolDefinido = Rol.NINGUNO;
+                List<String> backups = null;
 
-                //Excepciones y salvedades
-                if("15288".equals(numero)){
-                    diasNoLaborados.add(Dia.SABADO);
-                    predefinido = Rol.INFORMACION;
-                    backup = new Empleado();
-                    backup.setNumero("17136");
+                //Revisamos si empleado tiene reglas
+                if(reglas.containsKey(numero)){
+                    if(reglas.get(numero).containsKey("diasNoLaborales")){
+                        List<Dia> diasR = (List<Dia>) reglas.get(numero).get("diasNoLaborales");
+                        diasNoLaborados.addAll(diasR);
+                    }
+
+                    if(reglas.get(numero).containsKey("turnoFijo")){
+                        Integer turnoFijoR = (Integer) reglas.get(numero).get("turnoFijo");
+                        turnoFijo = turnoFijoR.intValue();
+                    }
+
+                    if(reglas.get(numero).containsKey("rolDefinido")){
+                        rolDefinido = (Rol) reglas.get(numero).get("rolDefinido");
+                    }
+
+                    if(reglas.get(numero).containsKey("backups")){
+                        backups = (List<String>) reglas.get(numero).get("backups");
+                    }
+
                 }
 
-                if("14668".equals(numero)){
-                    predefinido = Rol.BACKOFFICE;
-                    backup = new Empleado();
-                    backup.setNumero("16980");
-                }
-
-                if("17136".equals(numero)){
-                    diasNoLaborados.add(Dia.LUNES);
-                    diasNoLaborados.add(Dia.MARTES);
-                }
-
-                if("17144".equals(numero) || "13214".equals(numero)){
-                    diasNoLaborados.add(Dia.JUEVES);
-                    diasNoLaborados.add(Dia.SABADO);
-                }
-
-                if("16807".equals(numero)){
-                    diasNoLaborados.add(Dia.VIERNES);
-                    diasNoLaborados.add(Dia.SABADO);
-                }
-
-                if("11938".equals(numero)){
-                    diasNoLaborados.add(Dia.LUNES);
-                    diasNoLaborados.add(Dia.VIERNES);
-                }
-
-                if("16570".equals(numero)){
-                    diasNoLaborados.add(Dia.LUNES);
-                    diasNoLaborados.add(Dia.JUEVES);
-                }
-
-                empleados.add(new Empleado(Long.getLong(rowNumber+""), numero, nombre, this.getTurnoFromEmpleado(currentRow), null, diasNoLaborados, predefinido, Rol.NINGUNO, backup, this.getDiasActualesLaboradosFromEmpleado(currentRow), null, turnoFijo));
+                empleados.add(new Empleado(Long.getLong(rowNumber+""), numero, nombre, this.getTurnoFromEmpleado(currentRow), null, diasNoLaborados, rolDefinido, Rol.NINGUNO, backups, this.getDiasActualesLaboradosFromEmpleado(currentRow), null, turnoFijo));
             }
         }
         return empleados;
@@ -221,5 +214,72 @@ public class EmpleadoService {
         rolService.flushCache();
     }
 
+    public Map<String, Map<String, Object>> getReglasEmpleadosFromFile(MultipartFile file){
+        logger.info(">>>> Cargando Reglas del Archivo");
+        Map<String, Map<String, Object>> reglas = new HashMap<>();
+        try {
+            Workbook workbook;
+            workbook = new XSSFWorkbook(file.getInputStream());
+
+            logger.info("Loading info from SHEET: {}", _REGLAS_SHEET_NAME);
+
+            Sheet sheet = workbook.getSheet(_REGLAS_SHEET_NAME);
+            Iterator<Row> rows = sheet.iterator();
+
+            int rowNumber = 0;
+            while (rows.hasNext()) {
+                Row currentRow = rows.next();
+                // skip header
+                if (rowNumber == 0) {
+                    rowNumber++;
+                    continue;
+                }
+
+                String numeroEmpleado = currentRow.getCell(0) == null ? "" : currentRow.getCell(0).toString().trim().replace(".0", "");
+                String diasNoLaboraRAW = currentRow.getCell(2) == null ? "" :  currentRow.getCell(2).toString().trim().toUpperCase();
+                String turnoFijoRAW = currentRow.getCell(3) == null ? "" :  currentRow.getCell(3).toString().trim().replace(".0", "");
+                String rolDefinidoRAW = currentRow.getCell(4) == null ? null :  currentRow.getCell(4).toString().trim().toUpperCase();
+                String backupsRAW = currentRow.getCell(5) == null ? null :  currentRow.getCell(5).toString().trim().replace(".0", "");
+
+                if(!numeroEmpleado.isEmpty()){
+                    Map<String, Object> e = new HashMap<>();
+                    if(!diasNoLaboraRAW.isEmpty()){
+                        List<Dia> dias = Arrays.asList(diasNoLaboraRAW).stream().map(EmpleadoService::diaFromString).collect(Collectors.toList());
+                        e.put("diasNoLaborales", dias);
+                    }
+                    if(!turnoFijoRAW.isEmpty()){
+                        e.put("turnoFijo", Integer.parseInt(turnoFijoRAW));
+                    }
+                    if(!rolDefinidoRAW.isEmpty()){
+                        e.put("rolDefinido", RolService.parseString(rolDefinidoRAW));
+                    }
+                    if(!backupsRAW.isEmpty()){
+                        e.put("backups", Arrays.asList(backupsRAW));
+                    }
+
+                    reglas.put(numeroEmpleado, e);
+                }
+            }
+            workbook.close();
+        } catch (IOException e) {
+            logger.error("No se pudo cargar el archivo excel para obetener las reglas de empleado", e);
+        }
+        logger.info("REGLAS CARGADAS ----------------------------------------------");
+        reglas.keySet().stream().forEach( k -> logger.info(k+" >> "+reglas.get(k)));
+        return reglas;
+    }
+
+    static Dia diaFromString(String s){
+        switch(s){
+            case "LUNES": return Dia.LUNES;
+            case "MARTES": return Dia.MARTES;
+            case "MIERCOLES": return Dia.MIERCOLES;
+            case "JUEVES": return Dia.JUEVES;
+            case "VIERNES": return Dia.VIERNES;
+            case "SABADO": return Dia.SABADO;
+            case "DOMINGO": return Dia.DOMINGO;
+        }
+        return null;
+    }
 
 }

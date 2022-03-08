@@ -83,4 +83,15 @@ public class RolService {
     private void restarRol(Rol r){
         _CACHE_CAPACIDADES_ROLES.put(r, new Integer(_CACHE_CAPACIDADES_ROLES.get(r).intValue() - 1));
     }
+
+    public static Rol parseString(String s){
+        switch(s){
+            case "CAJA": return Rol.CAJA;
+            case "PLATAFORMA": return Rol.PLATAFORMA;
+            case "BACKOFFICE": return Rol.BACKOFFICE;
+            case "INFORMACION": return Rol.INFORMACION;
+            case "PLATAFORMA_EMPRESARIAL": return Rol.PLATAFORMA_EMPRESARIAL;
+        }
+        return Rol.NINGUNO;
+    }
 }
