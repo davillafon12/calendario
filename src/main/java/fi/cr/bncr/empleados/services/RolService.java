@@ -16,6 +16,7 @@ import fi.cr.bncr.empleados.enums.Rol;
 @Component
 public class RolService {
 
+    @SuppressWarnings("unused")
     private static Logger logger  = LoggerFactory.getLogger(RolService.class);
 
     private Map<Rol, Integer> capacidadRoles = new HashMap<Rol, Integer>(){{
