@@ -32,6 +32,7 @@ import fi.cr.bncr.empleados.models.Turno;
 import fi.cr.bncr.empleados.processors.AddSiguienteTurnoEmpleadoProcessor;
 import fi.cr.bncr.empleados.processors.AsignarRolEmpleadoProcessor;
 import fi.cr.bncr.empleados.processors.GenerarDiasLaboralesProcessor;
+import fi.cr.bncr.empleados.utils.Utils;
 
 @Component
 public class EmpleadoService {
@@ -199,6 +200,52 @@ public class EmpleadoService {
             .processar(asignarRolEmpleadoProcessor)
             .processar(generarDiasLaboralesProcessor));
 
+        //Liberamos la cache de conteo de roles
+        rolService.flushCache();
+
+        //Rellenamos los roles que no tienen personal
+        this.reasignarRolesFaltantesPorDia(empleados);
+
+        //Balanceamos cantidad de cajas y plataformas por dia
+        this.balancearCajasYPlataformas(empleados);
+    }
+
+    private void balancearCajasYPlataformas(List<Empleado> empleados){
+        //Hacemos una sumatoria para saber que dias no tiene un rol en especifico
+        //y para ver cuales dias hay que nivelar
+        Map<Dia, Map<Rol, Integer>> reparticionDeRoles = this.getSumatoriaRolesPorDia(empleados);
+        logger.info(">>>> Hay que balancear cajas y plataformas");
+        reparticionDeRoles.entrySet().stream()
+            .forEach( entry -> {
+                Dia dia = entry.getKey();
+                Map<Rol, Integer> conteo = entry.getValue();
+
+                //logger.info("REVISAR SI HAY QUE nivelar Cajas y Plataforma para el dia {}, Caja: {}, Plataforma: {}", dia, conteo.get(Rol.CAJA), conteo.get(Rol.PLATAFORMA));
+                while(Utils.existeDiferencia(conteo.get(Rol.CAJA).intValue(), conteo.get(Rol.PLATAFORMA).intValue(), 2)){
+                    logger.info("Hay que nivelar Cajas y Plataforma para el dia {}, Caja: {}, Plataforma: {}", dia, conteo.get(Rol.CAJA), conteo.get(Rol.PLATAFORMA));
+
+                    Rol rolACompensar = conteo.get(Rol.CAJA).intValue() < conteo.get(Rol.PLATAFORMA).intValue() ? Rol.CAJA : Rol.PLATAFORMA;
+                    Rol rolARestar = rolACompensar.equals(Rol.CAJA) ? Rol.PLATAFORMA : Rol.CAJA;
+
+                    //Buscamos los empleados que trabajen ese dia con el rol a restar
+                    List<Empleado> empleadosConRolARestar = empleados.stream()
+                                                                        .filter( e -> e.getDiasLaboresSiguientes().stream().anyMatch( dl -> dl.getDia().equals(dia) && dl.getRol().equals(rolARestar)))
+                                                                        .collect(Collectors.toList());
+
+                    //Seleccionamos un empleado al azar para asignarle el nuevo rol
+                    Random random = new Random();
+                    Empleado empleadoSeleccionado = empleadosConRolARestar.get(random.nextInt(empleadosConRolARestar.size()));
+
+                    empleadoSeleccionado.getDiasLaboresSiguientes().stream().filter( dl -> dl.getDia().equals(dia)).forEach( dl -> dl.setRol(rolACompensar));
+
+                    //Actualizamos valores en matriz
+                    conteo.put(rolACompensar, conteo.get(rolACompensar).intValue() + 1);
+                    conteo.put(rolARestar, conteo.get(rolARestar).intValue() - 1);
+                }
+            });
+    }
+
+    private void reasignarRolesFaltantesPorDia(List<Empleado> empleados){
         //Hacemos una sumatoria para saber que dias no tiene un rol en especifico
         //y para ver cuales dias hay que nivelar
         Map<Dia, Map<Rol, Integer>> reparticionDeRoles = this.getSumatoriaRolesPorDia(empleados);
@@ -262,8 +309,6 @@ public class EmpleadoService {
                     }
                 });
             });
-
-        rolService.flushCache();
     }
 
     private Map<Dia, Map<Rol, Integer>> getSumatoriaRolesPorDia(List<Empleado> empleados){

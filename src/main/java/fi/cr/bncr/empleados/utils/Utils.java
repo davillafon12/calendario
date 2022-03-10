@@ -25,4 +25,10 @@ public class Utils {
 
     }
 
+    public static boolean existeDiferencia(int a, int b, int diferencia){
+        if(a == b) return false;
+
+        return (a > b ? (a-b) >= diferencia : (b-a) >= diferencia);
+    }
+
 }
