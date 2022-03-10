@@ -2,6 +2,7 @@ package fi.cr.bncr.empleados.apis;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,36 +36,40 @@ public class ArchivoRestController {
 
         RestResponse r = new RestResponse(false, null, null);;
 
-        //Cargamos datos preeliminares
-        turnoService.loadTurnosFromFile(file);
+        try{
+            //Cargamos datos preeliminares
+            //Cargamos Turnos
+            turnoService.loadTurnosFromFile(file);
+            //Cargamos Reglas
+            Future<Map<String, Map<String, Object>>> reglasF = empleadoService.getReglasEmpleadosFromFile(file);
+            //Cargamos Empleados
+            Future<List<Empleado>> empleadosF = empleadoService.loadEmpleadosFromFile(file);
 
-        if(turnoService.getAllTurnos().size() > 0){
-            Map<String, Map<String, Object>> reglas = empleadoService.getReglasEmpleadosFromFile(file);
+            Map<String, Map<String, Object>> reglas = reglasF.get();
+            List<Empleado> empleados = empleadosF.get();
 
-            List<Empleado> empleados = empleadoService.loadEmpleadosFromFile(file, reglas);
+            if(turnoService.getAllTurnos().size() > 0){
+                if(empleados.size() > 0){
+                    //Aplicamos reglas
+                    empleadoService.aplicarReglasEmpleados(empleados, reglas);
 
-            if(empleados.size() > 0){
+                    //Aplicamos siguiente movimiento
+                    empleadoService.asignarSiguienteMovimiento(empleados);
+
+                    r.setSuccess(true);
+                    r.setData(empleados);
+                }else{
+                    r.setError("No hay empleados disponibles");
+                }
             }else{
-                r.setError("No hay empleados disponibles");
+                r.setError("No hay turnos disponibles");
             }
-        }else{
-            r.setError("No hay turnos disponibles");
+        }catch(Exception e){
+            r.setError("Error al ejecutar metodos Async");
+            r.setData(e.getMessage());
+            logger.error("Error al ejecutar metodos ASYNC", e);
         }
 
         return r;
-
-        /*List<Empleado> empleados = empleadoService.loadExcelFile(file);
-        if(empleados != null){
-            //empleados.forEach(e -> logger.info(e.toString()));
-
-            empleadoService.asignarSiguienteMovimiento(empleados);
-
-            //logger.info("----------------------------------------------");
-            empleados.forEach(e -> logger.info(e.toString()));
-
-            return new RestResponse(true, empleados, null);
-        }else{
-            return new RestResponse(false, "Error al cargar el archivo Excel", "Objeto Nulo");
-        }*/
     }
 }

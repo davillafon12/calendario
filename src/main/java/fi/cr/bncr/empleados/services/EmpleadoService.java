@@ -3,10 +3,14 @@ package fi.cr.bncr.empleados.services;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.Future;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.Row;
@@ -16,6 +20,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -50,7 +56,8 @@ public class EmpleadoService {
     private RolService rolService;
 
 
-    public List<Empleado> loadEmpleadosFromFile(MultipartFile file, Map<String, Map<String,Object>> reglas){
+    @Async
+    public Future<List<Empleado>> loadEmpleadosFromFile(MultipartFile file){
         logger.info(">>>> Cargando empleados desde el archivo");
         List<Empleado> empleados = null;
         try {
@@ -63,7 +70,7 @@ public class EmpleadoService {
 
             Sheet sheet = workbook.getSheet(sheetName);
             Iterator<Row> rows = sheet.iterator();
-            empleados = this.getEmpleadosFromExcel(rows, reglas);
+            empleados = this.getEmpleadosFromExcel(rows);
             workbook.close();
 
             logger.info("EMPLEADOS CARGADOS ----------------------------------------------");
@@ -71,10 +78,10 @@ public class EmpleadoService {
         } catch (IOException e) {
             logger.error("No se pudo cargar el archivo excel", e);
         }
-        return empleados;
+        return new AsyncResult<List<Empleado>>(empleados);
     }
 
-    public List<Empleado> getEmpleadosFromExcel(Iterator<Row> rows, Map<String, Map<String,Object>> reglas){
+    public List<Empleado> getEmpleadosFromExcel(Iterator<Row> rows){
 
         List<Empleado> empleados = new ArrayList<>();
         int rowNumber = 0;
@@ -97,27 +104,7 @@ public class EmpleadoService {
                 Rol rolDefinido = Rol.NINGUNO;
                 List<String> backups = null;
 
-                //Revisamos si empleado tiene reglas
-                if(reglas.containsKey(numero)){
-                    if(reglas.get(numero).containsKey("diasNoLaborales")){
-                        List<Dia> diasR = (List<Dia>) reglas.get(numero).get("diasNoLaborales");
-                        diasNoLaborados.addAll(diasR);
-                    }
 
-                    if(reglas.get(numero).containsKey("turnoFijo")){
-                        Integer turnoFijoR = (Integer) reglas.get(numero).get("turnoFijo");
-                        turnoFijo = turnoFijoR.intValue();
-                    }
-
-                    if(reglas.get(numero).containsKey("rolDefinido")){
-                        rolDefinido = (Rol) reglas.get(numero).get("rolDefinido");
-                    }
-
-                    if(reglas.get(numero).containsKey("backups")){
-                        backups = (List<String>) reglas.get(numero).get("backups");
-                    }
-
-                }
 
                 empleados.add(new Empleado(Long.getLong(rowNumber+""), numero, nombre, this.getTurnoFromEmpleado(currentRow), null, diasNoLaborados, rolDefinido, Rol.NINGUNO, backups, this.getDiasActualesLaboradosFromEmpleado(currentRow), null, turnoFijo));
             }
@@ -165,7 +152,9 @@ public class EmpleadoService {
 
     private Rol getRolFromEmpleado(String contenido){
 
-        if(contenido.contains("caja")){
+        if(contenido.contains("caja") && contenido.contains("rap")){
+            return Rol.CAJA_RAPIDA;
+        }else if(contenido.contains("caja")){
             return Rol.CAJA;
         }else if(contenido.contains("plat") && contenido.contains("emp")){
             return Rol.PLATAFORMA_EMPRESARIAL;
@@ -211,10 +200,106 @@ public class EmpleadoService {
             .processar(asignarRolEmpleadoProcessor)
             .processar(generarDiasLaboralesProcessor));
 
+        //Hacemos una sumatoria para saber que dias no tiene un rol en especifico
+        //y para ver cuales dias hay que nivelar
+        Map<Dia, Map<Rol, Integer>> reparticionDeRoles = this.getSumatoriaRolesPorDia(empleados);
+        //reparticionDeRoles.entrySet().stream().forEach( entry -> logger.info(entry.getKey()+" | "+entry.getValue()));
+        logger.info(">>>> Hay que rellenar puestos en estos dias");
+        reparticionDeRoles.entrySet().stream()
+            .forEach( entry -> {
+                Dia dia = entry.getKey();
+                List<Rol> rolesSinAsignar = entry.getValue().entrySet().stream()
+                                            .filter( entry3 -> entry3.getValue().intValue() == 0) //Deme los elementos con cantidades cero
+                                            .map( entry4 -> entry4.getKey()).collect(Collectors.toList()); //Deme la lista de roles con cero
+
+                rolesSinAsignar.stream().forEach( r -> {
+                    logger.info("Dia: {} Rol: {}", dia, r);
+
+                    boolean empleadoHaSidoAsignado = false;
+                    //Revisamos si hay empleados con dicho rol en especifico
+                    //primero debemos ver quien es su backup
+                    List<Empleado> empleadoFuera = empleados.stream()
+                                                            .filter(e -> e.getBackup() != null && e.getRolPredefinido() != null)
+                                                            .filter( e -> e.getBackup().size()>0 && r.equals(e.getRolPredefinido())) //Con esto traemos empleados que tengan este rol predeterminado y tengan backups
+                                                            .filter( e -> !e.getDiasLaboresSiguientes().stream().anyMatch( dl -> dl.getDia().equals(dia))) //Con esto traemos empleados que no trabajen este dia
+                                                            .collect(Collectors.toList());
+                    //Si existe un empleado que tiene informacion directa para remplazar
+                    //con otro empleado, nos vamos por esta opcion
+                    if(!empleadoFuera.isEmpty()){
+                        Empleado eFuera = empleadoFuera.get(0);
+                        logger.info("El empleado {} esta fuera y debe ser remplazado por {}", eFuera.getNumero()+" | "+eFuera.getNombre(), eFuera.getBackup());
+
+                        for(String numeroE : eFuera.getBackup()){
+                            logger.info("BUSCANDO INFO DEL EMPLEADO: {}", numeroE);
+                            List<Empleado> empleadosBackupDisponibles = empleados.stream()
+                                                                        .filter( e -> e.getNumero().equals(numeroE)) //Buscar al backup primero
+                                                                        .filter( e -> e.getDiasLaboresSiguientes().stream().anyMatch( dl -> dl.getDia().equals(dia))) //Dicho empleado trabaja ese dia
+                                                                        .collect(Collectors.toList());
+                            logger.info("EMPLEADOS ENCONTRADOS: {}", empleadosBackupDisponibles);
+                            if(!empleadosBackupDisponibles.isEmpty()){
+                                Empleado empleadoSeleccionadoBackup = empleadosBackupDisponibles.get(0);
+                                logger.info("El empleado backup {} es remplazo para el dia {} en el rol {}", empleadoSeleccionadoBackup.getNumero()+" | "+empleadoSeleccionadoBackup.getNombre(), dia, r);
+                                //Asignamos el rol al otro empleado
+                                empleadoSeleccionadoBackup.getDiasLaboresSiguientes().stream().filter( dl -> dl.getDia().equals(dia)).forEach( dl -> dl.setRol(r));
+
+                                empleadoHaSidoAsignado = true;
+                                break;
+                            }
+                        }
+
+                    }
+
+                    if(!empleadoHaSidoAsignado){
+                        //Si no hay backup pues asignamos a lo random
+                        List<Empleado> empleadosDisponiblesRandom = empleados.stream()
+                                                                    .filter( e -> e.getDiasLaboresSiguientes().stream().anyMatch( dl -> dl.getDia().equals(dia))) //Traemos clientes que trabajan este dia
+                                                                    .filter( e -> e.getRolSiguiente().equals(Rol.CAJA) || e.getRolSiguiente().equals(Rol.PLATAFORMA)) //Traemos clientes que trabajan en plataforma o caja
+                                                                    .collect(Collectors.toList());
+
+                        Random random = new Random();
+                        Empleado empleadoSeleccionadoRandom = empleadosDisponiblesRandom.get(random.nextInt(empleadosDisponiblesRandom.size()));
+                        logger.info("El empleado {} es remplazo para el dia {} en el rol {}", empleadoSeleccionadoRandom.getNumero()+" | "+empleadoSeleccionadoRandom.getNombre(), dia, r);
+                        empleadoSeleccionadoRandom.getDiasLaboresSiguientes().stream().filter( dl -> dl.getDia().equals(dia)).forEach( dl -> dl.setRol(r));
+                    }
+                });
+            });
+
         rolService.flushCache();
     }
 
-    public Map<String, Map<String, Object>> getReglasEmpleadosFromFile(MultipartFile file){
+    private Map<Dia, Map<Rol, Integer>> getSumatoriaRolesPorDia(List<Empleado> empleados){
+        Map<Dia, Map<Rol, Integer>> reparticionDeRoles = this.getConteoBarebone();
+
+        for(Empleado e : empleados){
+            for(DiaLaboral dl : e.getDiasLaboresSiguientes()){
+                Integer valor = reparticionDeRoles.get(dl.getDia()).get(dl.getRol());
+                reparticionDeRoles.get(dl.getDia()).put(dl.getRol(), valor.intValue() + 1);
+            }
+        }
+        return reparticionDeRoles;
+    }
+
+    private Map<Dia, Map<Rol, Integer>> getConteoBarebone(){
+        Map<Dia, Map<Rol, Integer>> barebone = new HashMap<>();
+        List<Dia> dias = new ArrayList<Dia>(EnumSet.allOf(Dia.class));
+        List<Rol> roles = new ArrayList<Rol>(EnumSet.allOf(Rol.class));
+        for(Dia d : dias){
+            if(d.equals(Dia.DOMINGO)) continue;
+            barebone.put(d, new HashMap<Rol, Integer>());
+            for(Rol r : roles){
+                if(r.equals(Rol.NINGUNO)) continue;
+
+                //Estos roles no existen los sabados
+                if((r.equals(Rol.BACKOFFICE) || r.equals(Rol.PLATAFORMA_EMPRESARIAL) || r.equals(Rol.INFORMACION)) && d.equals(Dia.SABADO)) continue;
+
+                barebone.get(d).put(r, 0);
+            }
+        }
+        return barebone;
+    }
+
+    @Async
+    public Future<Map<String, Map<String, Object>>> getReglasEmpleadosFromFile(MultipartFile file){
         logger.info(">>>> Cargando Reglas del Archivo");
         Map<String, Map<String, Object>> reglas = new HashMap<>();
         try {
@@ -244,7 +329,7 @@ public class EmpleadoService {
                 if(!numeroEmpleado.isEmpty()){
                     Map<String, Object> e = new HashMap<>();
                     if(!diasNoLaboraRAW.isEmpty()){
-                        List<Dia> dias = Arrays.asList(diasNoLaboraRAW).stream().map(EmpleadoService::diaFromString).collect(Collectors.toList());
+                        List<Dia> dias = Arrays.asList(diasNoLaboraRAW.split(",")).stream().map(EmpleadoService::diaFromString).collect(Collectors.toList());
                         e.put("diasNoLaborales", dias);
                     }
                     if(!turnoFijoRAW.isEmpty()){
@@ -254,7 +339,7 @@ public class EmpleadoService {
                         e.put("rolDefinido", RolService.parseString(rolDefinidoRAW));
                     }
                     if(!backupsRAW.isEmpty()){
-                        e.put("backups", Arrays.asList(backupsRAW));
+                        e.put("backups", Arrays.asList(backupsRAW.split(",")));
                     }
 
                     reglas.put(numeroEmpleado, e);
@@ -266,7 +351,38 @@ public class EmpleadoService {
         }
         logger.info("REGLAS CARGADAS ----------------------------------------------");
         reglas.keySet().stream().forEach( k -> logger.info(k+" >> "+reglas.get(k)));
-        return reglas;
+
+        return new AsyncResult<Map<String, Map<String, Object>>>(reglas);
+    }
+
+    public void aplicarReglasEmpleados(List<Empleado> empleados, Map<String, Map<String, Object>> reglas){
+        logger.info(">>>> Aplicando Reglas a Empleados");
+        empleados.stream()
+            .filter( e -> reglas.keySet().contains(e.getNumero()))
+            .forEach( e -> aplicarReglaEmpleado(e, reglas.get(e.getNumero())));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void aplicarReglaEmpleado(Empleado e, Map<String, Object> regla){
+        logger.info(">>>> Aplicando Regla a Empleado: {}", e.getNumero()+" | "+e.getNombre());
+        //Revisamos si empleado tiene reglas
+        if(regla.containsKey("diasNoLaborales")){
+            List<Dia> diasR = (List<Dia>) regla.get("diasNoLaborales");
+            e.getDiasQueNoLabora().addAll(diasR);
+        }
+
+        if(regla.containsKey("turnoFijo")){
+            Integer turnoFijoR = (Integer) regla.get("turnoFijo");
+            e.setTurnoFijo(turnoFijoR.intValue());
+        }
+
+        if(regla.containsKey("rolDefinido")){
+            e.setRolPredefinido((Rol) regla.get("rolDefinido"));
+        }
+
+        if(regla.containsKey("backups")){
+            e.setBackup((List<String>) regla.get("backups"));
+        }
     }
 
     static Dia diaFromString(String s){

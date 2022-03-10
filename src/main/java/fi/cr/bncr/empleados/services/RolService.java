@@ -24,6 +24,7 @@ public class RolService {
         put(Rol.CAJA, 50);
         put(Rol.PLATAFORMA, 50);
         put(Rol.INFORMACION, 1);
+        put(Rol.CAJA_RAPIDA, 1);
     }};
 
     public static Map<Rol, Integer> _CACHE_CAPACIDADES_ROLES = new HashMap<>();

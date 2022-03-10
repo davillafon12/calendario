@@ -13,6 +13,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,6 +38,10 @@ public class TurnoService {
 
     public List<Turno> getAllTurnos(){
         return this.turnosDisponibles;
+    }
+
+    public Turno getTurnoByNumero(int numero){
+        return this.turnosDisponibles.stream().filter( t -> t.getNumero() == numero).findFirst().get();
     }
 
     public Turno getRandomTurno(boolean trabajaSabado){

@@ -13,6 +13,7 @@ const _DIAS = {
 var _ROLES = {};
 _ROLES["NINGUNO"] = {enum:"NINGUNO", nombre: "Ninguno", abreviatura: "Ninguno", totales:{}};
 _ROLES["CAJA"] = {enum:"CAJA", nombre: "Caja", abreviatura: "Caja", totales:{}};
+_ROLES["CAJA_RAPIDA"] = {enum:"CAJA_RAPIDA", nombre: "Caja Rápida", abreviatura: "C. Rápida", totales:{}};
 _ROLES["PLATAFORMA"] = {enum:"PLATAFORMA", nombre: "Plataforma", abreviatura: "Plat.", totales:{}};
 _ROLES["PLATAFORMA_EMPRESARIAL"] = {enum:"PLATAFORMA_EMPRESARIAL", nombre: "Plataforma Empresarial", abreviatura: "Plat. Emp.", totales:{}};
 _ROLES["INFORMACION"] = {enum:"INFORMACION", nombre: "Información", abreviatura: "Info.", totales:{}};
@@ -84,8 +85,8 @@ function getFinalRol(dl){
 }
 
 function generarFilaActual(e){
-    var htmlActual = "<tr><td>"+e.numero+"</td>"+
-                "<td>"+e.nombre+"</td>";
+    var htmlActual = "<tr><td class='"+(e.turnoFijo > 0 ? "fijo" : "" )+"'>"+e.numero+"</td>"+
+                "<td class='"+(e.turnoFijo > 0 ? "fijo" : "" )+"'>"+e.nombre+"</td>";
 
 
     for(var index in _ORDEN_DIAS){
@@ -101,8 +102,8 @@ function generarFilaActual(e){
 }
 
 function generarFilaSiguiente(e){
-    var htmlSiguiente = "<tr><td>"+e.numero+"</td>"+
-                "<td>"+e.nombre+"</td>";
+    var htmlSiguiente = "<tr><td class='"+(e.turnoFijo > 0 ? "fijo" : "" )+"'>"+e.numero+"</td>"+
+                "<td class='"+(e.turnoFijo > 0 ? "fijo" : "" )+"'>"+e.nombre+"</td>";
 
 
     for(var index in _ORDEN_DIAS){

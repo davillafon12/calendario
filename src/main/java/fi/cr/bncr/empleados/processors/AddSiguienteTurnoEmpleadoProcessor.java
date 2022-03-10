@@ -26,17 +26,13 @@ public class AddSiguienteTurnoEmpleadoProcessor implements BaseProcessor<Emplead
     @Override
     public Empleado process(Empleado empleado) {
         Turno actual = empleado.getTurnoActual();
-        Turno siguiente = turnoService.getSiguienteTurno(actual);
+        Turno siguiente = empleado.getTurnoFijo() > 0 ? turnoService.getTurnoByNumero(empleado.getTurnoFijo()) : turnoService.getSiguienteTurno(actual);
 
         if(this.tieneRestriccionDeDiaLaboral(empleado, siguiente)){
             logger.info("HAY QUE CAMBIARLE EL TURNO A: "+empleado.getNombre());
-           // logger.info(siguiente.toString());
+            //logger.info(siguiente.toString());
             siguiente = this.getTurnoQueCalce(empleado);
         }
-
-        /*logger.info("***********************");
-        logger.info(actual.toString());
-        logger.info(siguiente.toString());*/
 
         empleado.setTurnoSiguiente(siguiente);
         return empleado;
