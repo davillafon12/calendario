@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import fi.cr.bncr.empleados.helpers.FileHelper;
 import fi.cr.bncr.empleados.models.Empleado;
 import fi.cr.bncr.empleados.models.RestResponse;
 import fi.cr.bncr.empleados.services.EmpleadoService;
@@ -29,6 +30,9 @@ public class ArchivoRestController {
 
     @Autowired
     private TurnoService turnoService;
+
+    @Autowired
+    private FileHelper fileHelper;
 
 
     @PostMapping("subir")
@@ -55,6 +59,12 @@ public class ArchivoRestController {
 
                     //Aplicamos siguiente movimiento
                     empleadoService.asignarSiguienteMovimiento(empleados);
+
+                    //Guardamos el excel para bretearlo despues
+                    fileHelper.saveBinaryExcelFile(file);
+
+                    //Guardamos empleados
+                    fileHelper.saveBinaryEmpleados(empleados);
 
                     r.setSuccess(true);
                     r.setData(empleados);

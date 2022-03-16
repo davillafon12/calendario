@@ -1,5 +1,6 @@
 package fi.cr.bncr.empleados.models;
 
+import java.io.Serializable;
 import java.util.List;
 
 import fi.cr.bncr.empleados.enums.Dia;
@@ -12,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Empleado {
+public class Empleado implements Serializable{
 
     private Long id;
     private String numero;

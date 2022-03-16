@@ -12,6 +12,8 @@ import java.util.Random;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+import javax.security.auth.login.LoginException;
+
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -64,7 +66,11 @@ public class EmpleadoService {
             Workbook workbook;
             workbook = new XSSFWorkbook(file.getInputStream());
             int lastSheetNumber = workbook.getNumberOfSheets();
-            String sheetName = workbook.getSheetName(lastSheetNumber-1);
+            String sheetName = "";
+            do{
+                sheetName = workbook.getSheetName(lastSheetNumber-1);
+                lastSheetNumber--;
+            }while(sheetName.equals("Reglas") || sheetName.equals("Turnos"));
 
             logger.info("Loading info from SHEET: {}", sheetName);
 
@@ -96,6 +102,8 @@ public class EmpleadoService {
             String numero = currentRow.getCell(0) == null ? "" : currentRow.getCell(0).toString().trim().replace(".0", "");
             String nombre = currentRow.getCell(1) == null ? "" : currentRow.getCell(1).toString().trim();
             if(!numero.isEmpty()){
+                logger.info("Creando empleado: {}", numero);
+
                 //Por defecto nadie trabaja los domingos
                 List<Dia> diasNoLaborados = new ArrayList<>();
                 diasNoLaborados.add(Dia.DOMINGO);
@@ -190,22 +198,28 @@ public class EmpleadoService {
     }
 
     public void asignarSiguienteMovimiento(List<Empleado> empleados){
+        logger.info("------------------------ ASIGNANDO SIGUIENTE TURNO --------------------------");
 
+        logger.info("-------->>>>>>>>> Asignando siguiente rol a los que tienen rol predefinido");
         //Asignarle rol a los que tiene rol predefinido
         empleados.stream().filter( e -> !e.getRolPredefinido().equals(Rol.NINGUNO)).forEach( e -> e.processar(asignarRolEmpleadoProcessor));
 
+        logger.info("-------->>>>>>>>> Asignando siguiente turno, rol y generar dias laborales");
         //Asignarles turnos y roles
         empleados.stream().forEach( e -> e.
             processar(addSiguienteTurnoEmpleadoProcessor)
             .processar(asignarRolEmpleadoProcessor)
             .processar(generarDiasLaboralesProcessor));
 
+        logger.info("-------->>>>>>>>> Liberando cache de roles");
         //Liberamos la cache de conteo de roles
         rolService.flushCache();
 
+        logger.info("-------->>>>>>>>> Reasignar roles faltantes por dia");
         //Rellenamos los roles que no tienen personal
         this.reasignarRolesFaltantesPorDia(empleados);
 
+        logger.info("-------->>>>>>>>> Balanceando cajas y plataforma por diaclea");
         //Balanceamos cantidad de cajas y plataformas por dia
         this.balancearCajasYPlataformas(empleados);
     }
@@ -229,7 +243,7 @@ public class EmpleadoService {
 
                     //Buscamos los empleados que trabajen ese dia con el rol a restar
                     List<Empleado> empleadosConRolARestar = empleados.stream()
-                                                                        .filter( e -> e.getDiasLaboresSiguientes().stream().anyMatch( dl -> dl.getDia().equals(dia) && dl.getRol().equals(rolARestar)))
+                                                                        .filter( e -> e.getDiasLaboresSiguientes().stream().anyMatch( dl -> dl.getDia().equals(dia) && dl.getRol().equals(rolARestar) && e.getTurnoFijo() == 0))
                                                                         .collect(Collectors.toList());
 
                     //Seleccionamos un empleado al azar para asignarle el nuevo rol

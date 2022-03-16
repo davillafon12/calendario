@@ -1,5 +1,6 @@
 package fi.cr.bncr.empleados.models;
 
+import java.io.Serializable;
 import java.util.List;
 import javax.persistence.Column;
 import javax.persistence.Convert;
@@ -19,7 +20,7 @@ import lombok.Data;
 @AllArgsConstructor
 @Entity
 @Table(name = "turno")
-public class Turno {
+public class Turno implements Serializable{
 
     @Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
