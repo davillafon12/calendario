@@ -2,7 +2,9 @@ package fi.cr.bncr.empleados.helpers;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.URLDecoder;
@@ -73,6 +75,17 @@ public class FileHelper {
         }catch(Exception e){
             logger.error("No se pudo guardar el archivo excel", e);
         }
+    }
+
+    public InputStream getExcelFileIS(){
+        try{
+            String path = this.relativePath + "excel.tmp";
+            logger.info(">>>> Cargando el archivo excel: {}", path);
+            return new FileInputStream(path);
+        }catch(Exception e){
+            logger.error("No se pudo cargar el archivo excel", e);
+        }
+        return null;
     }
 
 }
