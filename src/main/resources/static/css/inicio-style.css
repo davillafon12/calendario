@@ -1,0 +1,48 @@
+table td, table th{
+    border: 1px solid #ebebeb;
+}
+td.no-labora{
+    background: #00b919;
+}
+td.fijo{
+    background: #b2dbff;
+}
+table th{
+    padding-left: 5px;
+    padding-right: 5px;
+}
+.th-medium{
+    min-width: 90px;
+}
+.th-large{
+    min-width: 350px;
+}
+
+.loading-modal{
+    position: absolute;
+    width: calc(100% - 224px);
+    height: 100%;
+    left: 224px;
+    top: 0px;
+    background: #000000a8;
+    z-index: 99999;
+}
+
+.contenedor.hide{
+    display: none;
+}
+
+.contenedor{
+    margin-top: 10px;
+}
+
+.loading-modal{
+    color: white;
+    text-align: center;
+    display: none;
+}
+
+.loading-modal img{
+    max-width: 500px;
+    margin-bottom: -100px;
+}

@@ -21,33 +21,11 @@ _ROLES["BACKOFFICE"] = {enum:"BACKOFFICE", nombre: "Backoffice", abreviatura: "B
 
 $(document).ready(function(){
 
-    $("#but_upload").click(function(){
+    $("#but_upload").click(generarMovimiento);
 
-        var fd = new FormData();
-        var files = $('#file')[0].files;
+    $("#btn_generar_movimiento").click(generarMovimiento);
 
-        // Check file selected or not
-        if(files.length > 0 ){
-            fd.append('file',files[0]);
-
-            $.ajax({
-                url: 'api/archivo/subir',
-                type: 'post',
-                data: fd,
-                contentType: false,
-                processData: false,
-                success: function(response){
-                    if(response.success){
-                        loadEmpleados(response.data);
-                    }else{
-                        alert("Hubo un error al cargar el archivo excel!");
-                    }
-                },
-            });
-        }else{
-            alert("Por favor seleccione un archivo");
-        }
-    });
+    $("#btn_descargar_excel").click(descargarArchivoExcel);
 });
 
 function loadEmpleados(empleados){
@@ -65,6 +43,42 @@ function loadEmpleados(empleados){
 
 
     generarTotales();
+}
+
+function generarMovimiento(){
+
+    var fd = new FormData();
+    var files = $('#file')[0].files;
+
+    // Check file selected or not
+    if(files.length > 0 ){
+        fd.append('file',files[0]);
+
+        $.ajax({
+            url: 'api/archivo/subir',
+            type: 'post',
+            data: fd,
+            contentType: false,
+            processData: false,
+            beforeSend: function(){
+                $("#modal_carga").show();
+                $("#contenedor_siguiente_turno, #contenedor_actual_turno, #contenedor_totales").addClass("hide");
+            },
+            success: function(response){
+                $("#modal_carga").hide();
+                if(response.success){
+                    loadEmpleados(response.data);
+                    $("#contenedor_carga_archivo").hide();
+                    $("#contenedor_siguiente_turno, #contenedor_actual_turno, #contenedor_totales").removeClass("hide");
+                }else{
+                    $("#contenedor_carga_archivo").show();
+                    alert("Hubo un error al cargar el archivo excel!");
+                }
+            },
+        });
+    }else{
+        alert("Por favor seleccione un archivo");
+    }
 }
 
 function getClassForDia(dl){
@@ -172,4 +186,8 @@ function limpiarTotales(){
     for(var index in _ROLES){
         _ROLES[index].totales = {};
     }
+}
+
+function descargarArchivoExcel(){
+
 }
