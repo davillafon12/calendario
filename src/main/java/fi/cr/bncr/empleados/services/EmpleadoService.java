@@ -1,6 +1,5 @@
 package fi.cr.bncr.empleados.services;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -12,22 +11,18 @@ import java.util.Random;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-import javax.security.auth.login.LoginException;
-
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MultipartFile;
-
 import fi.cr.bncr.empleados.enums.Dia;
 import fi.cr.bncr.empleados.enums.Rol;
+import fi.cr.bncr.empleados.helpers.FileHelper;
 import fi.cr.bncr.empleados.models.DiaLaboral;
 import fi.cr.bncr.empleados.models.Empleado;
 import fi.cr.bncr.empleados.models.Turno;
@@ -59,31 +54,21 @@ public class EmpleadoService {
 
 
     @Async
-    public Future<List<Empleado>> loadEmpleadosFromFile(MultipartFile file){
+    public Future<List<Empleado>> loadEmpleadosFromFile(Workbook workbook){
         logger.info(">>>> Cargando empleados desde el archivo");
         List<Empleado> empleados = null;
-        try {
-            Workbook workbook;
-            workbook = new XSSFWorkbook(file.getInputStream());
-            int lastSheetNumber = workbook.getNumberOfSheets();
-            String sheetName = "";
-            do{
-                sheetName = workbook.getSheetName(lastSheetNumber-1);
-                lastSheetNumber--;
-            }while(sheetName.equals("Reglas") || sheetName.equals("Turnos"));
 
-            logger.info("Loading info from SHEET: {}", sheetName);
+        String sheetName = FileHelper.getNameHojaToLoad(workbook);
 
-            Sheet sheet = workbook.getSheet(sheetName);
-            Iterator<Row> rows = sheet.iterator();
-            empleados = this.getEmpleadosFromExcel(rows);
-            workbook.close();
+        logger.info("Loading info from SHEET: {}", sheetName);
 
-            logger.info("EMPLEADOS CARGADOS ----------------------------------------------");
-            empleados.forEach(e -> logger.info(e.toString()));
-        } catch (IOException e) {
-            logger.error("No se pudo cargar el archivo excel", e);
-        }
+        Sheet sheet = workbook.getSheet(sheetName);
+        Iterator<Row> rows = sheet.iterator();
+        empleados = this.getEmpleadosFromExcel(rows);
+
+        logger.info("EMPLEADOS CARGADOS ----------------------------------------------");
+        empleados.forEach(e -> logger.info(e.toString()));
+
         return new AsyncResult<List<Empleado>>(empleados);
     }
 
@@ -357,56 +342,51 @@ public class EmpleadoService {
     }
 
     @Async
-    public Future<Map<String, Map<String, Object>>> getReglasEmpleadosFromFile(MultipartFile file){
+    public Future<Map<String, Map<String, Object>>> getReglasEmpleadosFromFile(Workbook workbook){
         logger.info(">>>> Cargando Reglas del Archivo");
         Map<String, Map<String, Object>> reglas = new HashMap<>();
-        try {
-            Workbook workbook;
-            workbook = new XSSFWorkbook(file.getInputStream());
 
-            logger.info("Loading info from SHEET: {}", _REGLAS_SHEET_NAME);
 
-            Sheet sheet = workbook.getSheet(_REGLAS_SHEET_NAME);
-            Iterator<Row> rows = sheet.iterator();
+        logger.info("Loading info from SHEET: {}", _REGLAS_SHEET_NAME);
 
-            int rowNumber = 0;
-            while (rows.hasNext()) {
-                Row currentRow = rows.next();
-                // skip header
-                if (rowNumber == 0) {
-                    rowNumber++;
-                    continue;
-                }
+        Sheet sheet = workbook.getSheet(_REGLAS_SHEET_NAME);
+        Iterator<Row> rows = sheet.iterator();
 
-                String numeroEmpleado = currentRow.getCell(0) == null ? "" : currentRow.getCell(0).toString().trim().replace(".0", "");
-                String diasNoLaboraRAW = currentRow.getCell(2) == null ? "" :  currentRow.getCell(2).toString().trim().toUpperCase();
-                String turnoFijoRAW = currentRow.getCell(3) == null ? "" :  currentRow.getCell(3).toString().trim().replace(".0", "");
-                String rolDefinidoRAW = currentRow.getCell(4) == null ? null :  currentRow.getCell(4).toString().trim().toUpperCase();
-                String backupsRAW = currentRow.getCell(5) == null ? null :  currentRow.getCell(5).toString().trim().replace(".0", "");
-
-                if(!numeroEmpleado.isEmpty()){
-                    Map<String, Object> e = new HashMap<>();
-                    if(!diasNoLaboraRAW.isEmpty()){
-                        List<Dia> dias = Arrays.asList(diasNoLaboraRAW.split(",")).stream().map(EmpleadoService::diaFromString).collect(Collectors.toList());
-                        e.put("diasNoLaborales", dias);
-                    }
-                    if(!turnoFijoRAW.isEmpty()){
-                        e.put("turnoFijo", Integer.parseInt(turnoFijoRAW));
-                    }
-                    if(!rolDefinidoRAW.isEmpty()){
-                        e.put("rolDefinido", RolService.parseString(rolDefinidoRAW));
-                    }
-                    if(!backupsRAW.isEmpty()){
-                        e.put("backups", Arrays.asList(backupsRAW.split(",")));
-                    }
-
-                    reglas.put(numeroEmpleado, e);
-                }
+        int rowNumber = 0;
+        while (rows.hasNext()) {
+            Row currentRow = rows.next();
+            // skip header
+            if (rowNumber == 0) {
+                rowNumber++;
+                continue;
             }
-            workbook.close();
-        } catch (IOException e) {
-            logger.error("No se pudo cargar el archivo excel para obetener las reglas de empleado", e);
+
+            String numeroEmpleado = currentRow.getCell(0) == null ? "" : currentRow.getCell(0).toString().trim().replace(".0", "");
+            String diasNoLaboraRAW = currentRow.getCell(2) == null ? "" :  currentRow.getCell(2).toString().trim().toUpperCase();
+            String turnoFijoRAW = currentRow.getCell(3) == null ? "" :  currentRow.getCell(3).toString().trim().replace(".0", "");
+            String rolDefinidoRAW = currentRow.getCell(4) == null ? null :  currentRow.getCell(4).toString().trim().toUpperCase();
+            String backupsRAW = currentRow.getCell(5) == null ? null :  currentRow.getCell(5).toString().trim().replace(".0", "");
+
+            if(!numeroEmpleado.isEmpty()){
+                Map<String, Object> e = new HashMap<>();
+                if(!diasNoLaboraRAW.isEmpty()){
+                    List<Dia> dias = Arrays.asList(diasNoLaboraRAW.split(",")).stream().map(EmpleadoService::diaFromString).collect(Collectors.toList());
+                    e.put("diasNoLaborales", dias);
+                }
+                if(!turnoFijoRAW.isEmpty()){
+                    e.put("turnoFijo", Integer.parseInt(turnoFijoRAW));
+                }
+                if(!rolDefinidoRAW.isEmpty()){
+                    e.put("rolDefinido", RolService.parseString(rolDefinidoRAW));
+                }
+                if(!backupsRAW.isEmpty()){
+                    e.put("backups", Arrays.asList(backupsRAW.split(",")));
+                }
+
+                reglas.put(numeroEmpleado, e);
+            }
         }
+
         logger.info("REGLAS CARGADAS ----------------------------------------------");
         reglas.keySet().stream().forEach( k -> logger.info(k+" >> "+reglas.get(k)));
 

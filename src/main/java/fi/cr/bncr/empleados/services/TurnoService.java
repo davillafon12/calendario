@@ -1,6 +1,5 @@
 package fi.cr.bncr.empleados.services;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -10,12 +9,9 @@ import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MultipartFile;
-
 import fi.cr.bncr.empleados.enums.Dia;
 import fi.cr.bncr.empleados.models.Turno;
 
@@ -67,24 +63,17 @@ public class TurnoService {
         throw new IllegalStateException("No existe un turno siguiente disponible para este turno ["+ta.getSiguienteTurno()+"]");
     }
 
-    public void loadTurnosFromFile(MultipartFile file){
+    public void loadTurnosFromFile(Workbook workbook){
         logger.info(">>>> Cargando Turnos del Archivo");
-        try {
-            Workbook workbook;
-            workbook = new XSSFWorkbook(file.getInputStream());
 
-            logger.info("Loading info from SHEET: {}", _SHEET_NAME);
+        logger.info("Loading info from SHEET: {}", _SHEET_NAME);
 
-            Sheet sheet = workbook.getSheet(_SHEET_NAME);
-            Iterator<Row> rows = sheet.iterator();
-            this.loadTurnosFromExcel(rows);
-            workbook.close();
+        Sheet sheet = workbook.getSheet(_SHEET_NAME);
+        Iterator<Row> rows = sheet.iterator();
+        this.loadTurnosFromExcel(rows);
 
-            logger.info("TURNOS CARGADOS ----------------------------------------------");
-            this.turnosDisponibles.forEach(e -> logger.info(e.toString()));
-        } catch (IOException e) {
-            logger.error("No se pudo cargar los turnos desde el archivo", e);
-        }
+        logger.info("TURNOS CARGADOS ----------------------------------------------");
+        this.turnosDisponibles.forEach(e -> logger.info(e.toString()));
     }
 
     private void loadTurnosFromExcel(Iterator<Row> rows){

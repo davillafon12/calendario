@@ -9,7 +9,8 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.URLDecoder;
 import java.util.List;
-
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -41,17 +42,25 @@ public class FileHelper {
         }
     }
 
+    public Workbook fileToExcel(MultipartFile file){
+        try{
+            return new XSSFWorkbook(file.getInputStream());
+        }catch(Exception e){
+            logger.error("No se pudo convertir el file a excel", e);
+        }
+        return null;
+    }
+
     @Async
-    public void saveBinaryExcelFile(MultipartFile multipartFile){
+    public void saveBinaryExcelFile(Workbook workbook){
         try{
             String path = this.relativePath + "excel.tmp";
-            File file = new File(path);
 
+            FileOutputStream fileOut = new FileOutputStream(path);
             logger.info(">>>> Guardando el excel en el archivo: {}", path);
 
-            try (OutputStream os = new FileOutputStream(file)) {
-                os.write(multipartFile.getBytes());
-            }
+            workbook.write(fileOut);
+            fileOut.close();
         }catch(Exception e){
             logger.error("No se pudo guardar el archivo excel", e);
         }
@@ -86,6 +95,40 @@ public class FileHelper {
             logger.error("No se pudo cargar el archivo excel", e);
         }
         return null;
+    }
+
+   /* @Async
+    public Future<InputStream> guardarMovimientoEnExcel(List<Empleado> empleados, MultipartFile file){
+        logger.info(">>>> Guardando movimiento en excel");
+
+        try{
+            Workbook workbook;
+            workbook = new XSSFWorkbook(file.getInputStream());
+            String sheetName = FileHelper.getNameHojaToLoad(workbook);
+
+            logger.info("Duplicando hoja [{}]", sheetName);
+
+            int numeroHoja = workbook.getSheetIndex(sheetName);
+
+            workbook.cloneSheet(numeroHoja);
+
+            workbook.
+
+            return new AsyncResult(workbook.);
+
+        }catch(Exception e){
+            logger.error("No se pudo guardar los cambios en el excel", e);
+        }
+    }*/
+
+    public static String getNameHojaToLoad(Workbook workbook){
+        int lastSheetNumber = workbook.getNumberOfSheets();
+        String sheetName = "";
+        do{
+            sheetName = workbook.getSheetName(lastSheetNumber-1);
+            lastSheetNumber--;
+        }while(sheetName.equals("Reglas") || sheetName.equals("Turnos"));
+        return sheetName;
     }
 
 }

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 
+import org.apache.poi.ss.usermodel.Workbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,46 +45,55 @@ public class ArchivoRestController {
     @PostMapping("subir")
     public RestResponse upload(@RequestParam("file") MultipartFile file){
 
-        RestResponse r = new RestResponse(false, null, null);;
+        RestResponse r = new RestResponse(false, null, null);
 
-        try{
-            //Cargamos datos preeliminares
-            //Cargamos Turnos
-            turnoService.loadTurnosFromFile(file);
-            //Cargamos Reglas
-            Future<Map<String, Map<String, Object>>> reglasF = empleadoService.getReglasEmpleadosFromFile(file);
-            //Cargamos Empleados
-            Future<List<Empleado>> empleadosF = empleadoService.loadEmpleadosFromFile(file);
+        Workbook workbook = this.fileHelper.fileToExcel(file);
 
-            Map<String, Map<String, Object>> reglas = reglasF.get();
-            List<Empleado> empleados = empleadosF.get();
+        if(workbook != null){
+            try{
+                //Cargamos datos preeliminares
+                //Cargamos Turnos
+                turnoService.loadTurnosFromFile(workbook);
+                //Cargamos Reglas
+                Future<Map<String, Map<String, Object>>> reglasF = empleadoService.getReglasEmpleadosFromFile(workbook);
+                //Cargamos Empleados
+                Future<List<Empleado>> empleadosF = empleadoService.loadEmpleadosFromFile(workbook);
 
-            if(turnoService.getAllTurnos().size() > 0){
-                if(empleados.size() > 0){
-                    //Aplicamos reglas
-                    empleadoService.aplicarReglasEmpleados(empleados, reglas);
+                Map<String, Map<String, Object>> reglas = reglasF.get();
+                List<Empleado> empleados = empleadosF.get();
 
-                    //Aplicamos siguiente movimiento
-                    empleadoService.asignarSiguienteMovimiento(empleados);
+                if(turnoService.getAllTurnos().size() > 0){
+                    if(empleados.size() > 0){
+                        //Aplicamos reglas
+                        empleadoService.aplicarReglasEmpleados(empleados, reglas);
 
-                    //Guardamos el excel para bretearlo despues
-                    fileHelper.saveBinaryExcelFile(file);
+                        //Aplicamos siguiente movimiento
+                        empleadoService.asignarSiguienteMovimiento(empleados);
 
-                    //Guardamos empleados
-                    fileHelper.saveBinaryEmpleados(empleados);
+                        //Guardamos cambios en el excel
+                        //fileHelper.guardarMovimientoEnExcel(empleados);
 
-                    r.setSuccess(true);
-                    r.setData(empleados);
+                        //Guardamos el excel para bretearlo despues
+                        fileHelper.saveBinaryExcelFile(workbook);
+
+                        //Guardamos empleados
+                        fileHelper.saveBinaryEmpleados(empleados);
+
+                        r.setSuccess(true);
+                        r.setData(empleados);
+                    }else{
+                        r.setError("No hay empleados disponibles");
+                    }
                 }else{
-                    r.setError("No hay empleados disponibles");
+                    r.setError("No hay turnos disponibles");
                 }
-            }else{
-                r.setError("No hay turnos disponibles");
+            }catch(Exception e){
+                r.setError("Error al ejecutar metodos Async");
+                r.setData(e.getMessage());
+                logger.error("Error al ejecutar metodos ASYNC", e);
             }
-        }catch(Exception e){
-            r.setError("Error al ejecutar metodos Async");
-            r.setData(e.getMessage());
-            logger.error("Error al ejecutar metodos ASYNC", e);
+        }else{
+            r.setError("Error al convertir archivo a Excel");
         }
 
         return r;
